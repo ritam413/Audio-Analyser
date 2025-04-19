@@ -1,7 +1,10 @@
 // ======= signaling-server.js (Node.js WebSocket Server) =======
 
 const WebSocket = require('ws');
-const wss = new WebSocket.Server({ port: 3000 });
+
+// Use the PORT provided by Render
+const PORT = process.env.PORT || 3000;
+const wss = new WebSocket.Server({ port: PORT });
 
 let peers = {};
 
