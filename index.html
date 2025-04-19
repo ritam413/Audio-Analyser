@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Transcriber</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Audio Transcriber</h1>
+            <p class="subtitle">Convert speech to text in real-time or upload audio files</p>
+        </header>
+        
+        <div class="control-panel">
+            <div class="tab-container">
+                <button class="tab active" data-tab="live">Live Transcription</button>
+                <button class="tab" data-tab="upload">Upload Audio</button>
+            </div>
+            
+            <div class="tab-content active" id="live-tab">
+                <div class="visualizer" id="visualizer">
+                    <!-- Visualizer bars will be added dynamically -->
+                </div>
+                
+                <div class="action-buttons">
+                    <button id="startListening" class="btn btn-primary">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style="margin-right: 8px;">
+                            <path d="M3.5 6.5A.5.5 0 0 1 4 7v1a4 4 0 0 0 8 0V7a.5.5 0 0 1 1 0v1a5 5 0 0 1-4.5 4.975V15h3a.5.5 0 0 1 0 1h-7a.5.5 0 0 1 0-1h3v-2.025A5 5 0 0 1 3 8V7a.5.5 0 0 1 .5-.5z"/>
+                            <path d="M10 8a2 2 0 1 1-4 0V3a2 2 0 1 1 4 0v5zM8 0a3 3 0 0 0-3 3v5a3 3 0 0 0 6 0V3a3 3 0 0 0-3-3z"/>
+                        </svg>
+                        Start Listening
+                    </button>
+                    <button id="stopListening" class="btn btn-outline hidden">
+                        Stop Listening
+                    </button>
+                    <div id="liveStatus" class="status-indicator live">
+                        <span class="indicator-dot live"></span>
+                        Listening...
+                    </div>
+                </div>
+            </div>
+            
+            <div class="tab-content" id="upload-tab">
+                <div class="file-upload">
+                    <input type="file" id="audioUpload" accept="audio/*">
+                    <label for="audioUpload">
+                        <div class="file-upload-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+                                <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+                            </svg>
+                        </div>
+                        <h3>Drag & drop audio files here or click to browse</h3>
+                        <p>Supports MP3, WAV, OGG and other common formats</p>
+                    </label>
+                </div>
+                <div class="action-buttons">
+                    <button id="uploadButton" class="btn btn-primary" disabled>
+                        Transcribe Upload
+                    </button>
+                    <div id="uploadStatus" class="status-indicator uploading">
+                        <span class="indicator-dot uploading"></span>
+                        Uploading...
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="transcription-container">
+            <div class="transcription-header">
+                <h2>Transcription Results</h2>
+                <div>
+                    <button id="copyText" class="btn btn-outline" style="margin-right: 0.5rem;">
+                        Copy Text
+                    </button>
+                    <button id="downloadText" class="btn btn-outline">
+                        Download
+                    </button>
+                </div>
+            </div>
+            <div class="transcription-content" id="transcriptionOutput">
+                Your transcribed text will appear here...
+            </div>
+        </div>
+    </div>
+    <!-- <script src="script.js"></script>  -->
+    <script src="script_experimental.js"></script>
+</body>
+</html>
