@@ -24,30 +24,40 @@ wss.on('connection', (ws) => {
                 console.log(`✅ Registered peer: ${from}`);
                 break;
 
-            case 'join-room':
-                if (!rooms[room]) rooms[room] = [];
-                rooms[room].push(from);
-                ws.room = room;
-
-                console.log(`🚪 ${from} joined room: ${room}`);
-
-                // Notify other peers in the same room
-                rooms[room].forEach(peerId => {
-                    if (peerId !== from && peers[peerId]) {
-                        peers[peerId].send(JSON.stringify({
-                            type: 'user-joined',
-                            userId: from
-                        }));
+                case 'join-room':
+                    if (!from) {
+                        console.warn('❗ Cannot join room without ID (from).');
+                        return;
                     }
-                });
-
-                // Optional: confirm back to user
-                ws.send(JSON.stringify({
-                    type: 'room-joined',
-                    room
-                }));
-                break;
-
+                
+                    peers[from] = ws;
+                    ws.id = from;
+                    ws.room = room;
+                
+                    if (!rooms[room]) rooms[room] = [];
+                    rooms[room].push(from);
+                
+                    console.log(`👥 ${from} joined room: ${room}`);
+                    
+                    // Send the list of users already in the room to the new user
+                    const otherUsers = rooms[room].filter(peerId => peerId !== from);
+                    ws.send(JSON.stringify({
+                        type: 'room-joined',
+                        room,
+                        users: otherUsers
+                    }));
+                
+                    // Notify existing peers in the room about the new user
+                    otherUsers.forEach(peerId => {
+                        if (peers[peerId]) {
+                            peers[peerId].send(JSON.stringify({
+                                type: 'user-joined',
+                                userId: from
+                            }));
+                        }
+                    });
+                
+                    break;
             case 'offer':
             case 'answer':
             case 'ice-candidate':
