@@ -238,3 +238,12 @@ h1 {
 .hidden {
     display: none;
 }
+
+#liveStatus {
+    background-color: rgb(255, 232, 132);
+    transition: background-color 0.3s ease;
+}
+
+#liveStatus.no-sound {
+    background-color: rgb(189, 189, 189);
+}
