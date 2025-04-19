@@ -1,103 +1,155 @@
-// Tab switching functionality
+// ========== TAB SWITCHING ==========
 const tabs = document.querySelectorAll('.tab');
 tabs.forEach(tab => {
     tab.addEventListener('click', () => {
-        // Remove active class from all tabs and contents
         document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
         document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
 
-        // Add active class to clicked tab and corresponding content
         tab.classList.add('active');
         const tabId = tab.getAttribute('data-tab');
         document.getElementById(`${tabId}-tab`).classList.add('active');
     });
 });
 
-// Simulate live audio visualization (in a real app, this would connect to actual audio)
-const VISUALIZER_CONFIG = {
-    minHeight: 0,         // Minimum bar height (%)
-    maxHeight: 100,       // Maximum bar height (%)
-    updateProbability: 0.1, // Chance to update a bar each frame (0-1)
-    smoothingFactor: 0.6,  // How smooth the transitions are (0-1, higher = smoother)
-    waveSize: 8,          // How many bars form a "wave" group
-    blueHue: 240,         // Base blue hue (200 is standard blue)
-    hueRange:0 ,         // Color variation range
-    saturation: '100%',    // Color saturation
-    lightness: '65%'      // Color lightness
-};
+let analyzer = null;
+let microphone = null;
+let audioContext = null;
+let waveAnimationId = null;
+let fakeWaveOffset = 0;
+let isFakeWave = false;
 
-let visualizerBars = [];
-let animationFrameId = null;
-let currentHeights = [];
-let targetHeights = [];
 
-function setupVisualizer() {
-    const visualizer = document.getElementById('visualizer');
-    visualizer.innerHTML = '';
-    visualizerBars = [];
-    currentHeights = Array(50).fill(VISUALIZER_CONFIG.minHeight);
-    targetHeights = Array(50).fill(VISUALIZER_CONFIG.minHeight);
-    
-    // Create bars
-    for (let i = 0; i < 50; i++) {
-        const bar = document.createElement('div');
-        bar.className = 'visualizer-bar';
-        bar.style.left = `${i * 5}px`;
-        bar.style.height = `${VISUALIZER_CONFIG.minHeight}%`;
-        bar.style.transition = 'height 0.1s ease-out';
-        bar.style.backgroundColor = `hsl(${VISUALIZER_CONFIG.blueHue}, ${VISUALIZER_CONFIG.saturation}, ${VISUALIZER_CONFIG.lightness})`;
-        visualizer.appendChild(bar);
-        visualizerBars.push(bar);
+// ========== DRAW REAL WAVEFORM ==========
+function drawLiveWaveform(analyzer) {
+    const canvas = document.getElementById('waveCanvas');
+    const ctx = canvas.getContext('2d');
+    const width = canvas.width;
+    const height = canvas.height;
+    const bufferLength = analyzer.fftSize;
+    const dataArray = new Uint8Array(bufferLength);
+
+    function draw() {
+        waveAnimationId = requestAnimationFrame(draw);
+        analyzer.getByteTimeDomainData(dataArray);
+        const firstTen = Array.from(dataArray.slice(0, 10));
+        console.log("Mic data:", firstTen);
+        
+        // Check if it's just flatline (128 = silence)
+        const isSilent = firstTen.every(v => v === 128);
+        if (isSilent) {
+            liveStatus.classList.add('no-sound');
+        } else {
+            liveStatus.classList.remove('no-sound');
+        }
+        ctx.clearRect(0, 0, width, height);
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#4da8ff';
+        ctx.beginPath();
+
+        const sliceWidth = width / bufferLength;
+        let x = 0;
+
+        for (let i = 0; i < bufferLength; i++) {
+            const v = dataArray[i] / 128.0;
+            const y = v * height / 2;
+
+            if (i === 0) {
+                ctx.moveTo(x, y);
+            } else {
+                ctx.lineTo(x, y);
+            }
+
+            x += sliceWidth;
+        }
+
+        ctx.stroke();
     }
-    
-    // Start animation loop
-    animateVisualizer();
+
+    draw();
 }
 
+// ========== DRAW FAKE SINE WAVEFORM ==========
+function drawFakeWaveform() {
+    const canvas = document.getElementById('waveCanvas');
+    const ctx = canvas.getContext('2d');
+    const width = canvas.width;
+    const height = canvas.height;
+    const waveLength = 100;
+    const amplitude = 20;
+    const speed = 0.05;
+    const frequency = 0.1;
 
-function animateVisualizer() {
-    // Update random bars with new target heights
-    for (let i = 0; i < visualizerBars.length; i++) {
-        if (Math.random() < VISUALIZER_CONFIG.updateProbability) {
-            // Create wave-like patterns by grouping bars
-            if (i % VISUALIZER_CONFIG.waveSize === 0) {
-                const waveHeight = VISUALIZER_CONFIG.minHeight + 
-                                 Math.random() * (VISUALIZER_CONFIG.maxHeight - VISUALIZER_CONFIG.minHeight);
-                
-                // Update this bar and nearby bars
-                for (let j = 0; j < VISUALIZER_CONFIG.waveSize; j++) {
-                    if (i + j < visualizerBars.length) {
-                        targetHeights[i + j] = waveHeight * (0.9 + Math.random() * 0.2);
-                    }
-                }
+    isFakeWave = true;
+
+    function draw() {
+        if (!isFakeWave) return; // Prevent if cancelled
+        waveAnimationId = requestAnimationFrame(draw);
+
+        ctx.clearRect(0, 0, width, height);
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#999';
+        ctx.beginPath();
+
+        for (let x = 0; x < width; x++) {
+            const y = height / 2 + Math.sin((x + fakeWaveOffset) * frequency) * amplitude;
+            if (x === 0) {
+                ctx.moveTo(x, y);
+            } else {
+                ctx.lineTo(x, y);
             }
         }
+
+        ctx.stroke();
+        fakeWaveOffset += speed * 10;
     }
-    
-    // Apply smooth transitions
-    for (let i = 0; i < visualizerBars.length; i++) {
-        currentHeights[i] = currentHeights[i] * VISUALIZER_CONFIG.smoothingFactor + 
-                           targetHeights[i] * (1 - VISUALIZER_CONFIG.smoothingFactor);
-        
-        visualizerBars[i].style.height = `${currentHeights[i]}%`;
-        
-        
-    }
-    
-    animationFrameId = requestAnimationFrame(animateVisualizer);
+
+    draw();
 }
 
-// Live transcription controls
+// ========== STOP ANY WAVEFORM ==========
+function stopWaveform() {
+    if (waveAnimationId) {
+        cancelAnimationFrame(waveAnimationId);
+        waveAnimationId = null;
+    }
+    isFakeWave = false;
+
+    const canvas = document.getElementById('waveCanvas');
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+
+
+
+// ========== RECORDING ==========
 const startBtn = document.getElementById('startListening');
 const stopBtn = document.getElementById('stopListening');
 const liveStatus = document.getElementById('liveStatus');
 
-startBtn.addEventListener('click', () => {
-    startBtn.classList.add('hidden');
-    stopBtn.classList.remove('hidden');
-    liveStatus.classList.add('active');
-    setupVisualizer();
-    // In a real app: Start microphone access and audio processing
+startBtn.addEventListener('click', async () => {
+    try {
+        stopWaveform(); // stop any fake wave
+
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+        startBtn.classList.add('hidden');
+        stopBtn.classList.remove('hidden');
+        liveStatus.classList.add('active');
+
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        analyzer = audioContext.createAnalyser();
+        microphone = audioContext.createMediaStreamSource(stream);
+
+        microphone.connect(analyzer);
+        analyzer.fftSize = 256;
+
+        window.currentStream = stream;
+
+        drawLiveWaveform(analyzer);
+    } catch (err) {
+        console.error('Microphone access denied or failed:', err);
+        alert('Please allow microphone access.');
+    }
 });
 
 stopBtn.addEventListener('click', () => {
@@ -105,29 +157,34 @@ stopBtn.addEventListener('click', () => {
     stopBtn.classList.add('hidden');
     liveStatus.classList.remove('active');
 
-    cancelAnimationFrame(animationFrameId);
-    visualizerBars.forEach(bar => {
-        bar.style.animation = 'none';
-    });
-    visualizerBars.forEach(bar => {
-        bar.style.height = '0%';
-        bar.style.backgroundColor = 'var(--primary)'; // Reset color
-    });
-    // In a real app: Stop microphone access
+    stopWaveform();
+
+    if (window.currentStream) {
+        window.currentStream.getTracks().forEach(track => track.stop());
+        window.currentStream = null;
+    }
+
+    if (audioContext) {
+        audioContext.close().then(() => {
+            audioContext = null;
+        });
+    }
+
+    analyzer = null;
+    microphone = null;
+});
+// ========== DEFAULT SINE WAVE ON LOAD ==========
+window.addEventListener('load', () => {
+    drawFakeWaveform();
 });
 
-
-// File upload handling
+// ========== FILE UPLOAD HANDLING ==========
 const fileInput = document.getElementById('audioUpload');
 const uploadBtn = document.getElementById('uploadButton');
 const uploadStatus = document.getElementById('uploadStatus');
 
 fileInput.addEventListener('change', () => {
-    if (fileInput.files.length > 0) {
-        uploadBtn.disabled = false;
-    } else {
-        uploadBtn.disabled = true;
-    }
+    uploadBtn.disabled = fileInput.files.length === 0;
 });
 
 uploadBtn.addEventListener('click', () => {
@@ -135,11 +192,9 @@ uploadBtn.addEventListener('click', () => {
         uploadStatus.classList.add('active');
         uploadBtn.disabled = true;
 
-        // Simulate upload and processing delay
         setTimeout(() => {
-            // In a real app: Process the uploaded file
             document.getElementById('transcriptionOutput').textContent =
-                "This is a simulation of transcribed text from an uploaded audio file. In a real application, this would show the actual transcription results from the audio processing.";
+                "This is a simulation of transcribed text from an uploaded audio file.";
 
             uploadStatus.classList.remove('active');
             uploadBtn.disabled = false;
@@ -147,7 +202,7 @@ uploadBtn.addEventListener('click', () => {
     }
 });
 
-// Copy and download buttons
+// ========== COPY AND DOWNLOAD ==========
 document.getElementById('copyText').addEventListener('click', () => {
     const text = document.getElementById('transcriptionOutput').textContent;
     navigator.clipboard.writeText(text)
