@@ -49,7 +49,7 @@
 
 -   **Steps to Install**:
     ```bash
-    git clone https://github.com/yourusername/audio-analyzer.git
+    git clone https://github.com/ritam413/audio-analyzer.git
     cd audio-analyzer
 
     # Install Node dependencies
