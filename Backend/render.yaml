@@ -1,0 +1,32 @@
+services:
+  - name: audio-signaling
+    type: web
+    runtime: docker
+    port: 3000
+    envVars:
+      - key: PORT
+        value: 3000
+      - key: NODE_ENV
+        value: production
+      - key: ALLOWED_ORIGINS
+        value: https://audio-analyser.netlify.app
+    healthCheckPath: /health
+
+  - name: audio-transcription
+    type: web
+    runtime: docker
+    port: 5000
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: MAX_CONTENT_LENGTH
+        value: 10485760  # 10MB
+    healthCheckPath: /health
+    build:
+      dockerfile: backend/transcription/Dockerfile
+      services:
+  - type: web
+    name: transcription-service
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
