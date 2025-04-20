@@ -1,0 +1,11 @@
+{
+    "name": "signaling-server",
+    "version": "1.0.0",
+    "main": "signaling-server.js",
+    "scripts": {
+      "start": "node signaling-server.js"
+    },
+    "dependencies": {
+      "ws": "^8.0.0"
+    }
+  }
