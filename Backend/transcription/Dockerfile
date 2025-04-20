@@ -3,44 +3,46 @@ FROM python:3.9-slim as builder
 
 WORKDIR /app
 
-# Install system dependencies
+# Install system dependencies (ffmpeg for audio conversion)
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    ffmpeg \
-    && rm -rf /var/lib/apt/lists/*
+    ffmpeg curl && \
+    rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies
+# Copy and install Python dependencies
 COPY requirements.txt .
 RUN pip install --user --no-cache-dir -r requirements.txt
 
-# Final stage
+# Final image stage
 FROM python:3.9-slim
 
 WORKDIR /app
 
-# Install runtime dependencies
+# Install runtime system dependencies again
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    ffmpeg \
-    && rm -rf /var/lib/apt/lists/*
+    ffmpeg curl && \
+    rm -rf /var/lib/apt/lists/*
 
-# Copy Python dependencies from builder
+# Copy installed Python packages from builder stage
 COPY --from=builder /root/.local /root/.local
 
-# Ensure scripts in .local are usable
+# Make sure the installed binaries are accessible
 ENV PATH=/root/.local/bin:$PATH
 
 # Copy application code
 COPY . .
 
-# Runtime configuration
-EXPOSE 5000
+# Set environment variables
 ENV FLASK_APP=app.py
 ENV PYTHONUNBUFFERED=1
 
-# Health check (simplified for Render)
-HEALTHCHECK --interval=30s --timeout=5s \
-  CMD curl -f http://localhost:5000/ || exit 1
+# Expose the port used in app.py
+EXPOSE 10000
 
-# Run with gunicorn (fewer workers for free tier)
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--timeout", "120", "app:app"]
+# Health check for Render (optional but helpful)
+HEALTHCHECK --interval=30s --timeout=5s \
+  CMD curl -f http://localhost:$PORT/ || exit 1
+
+# Command to run app using gunicorn with dynamic PORT
+CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:$PORT --workers 2 --timeout 120 app:app"]

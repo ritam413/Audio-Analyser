@@ -2,10 +2,20 @@ from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import os
 import speech_recognition as sr
-# from pydub import AudioSegment  # Commented out for debugging
+import ffmpeg
 
 app = Flask(__name__, static_folder='.', static_url_path='')
 CORS(app)
+
+# Convert any input audio to WAV using ffmpeg-python
+def convert_to_wav(input_path, output_path):
+    try:
+        print(f"[FFMPEG] Converting {input_path} to {output_path}...")
+        ffmpeg.input(input_path).output(output_path).run(overwrite_output=True)
+        print("[FFMPEG] Conversion successful.")
+    except ffmpeg.Error as e:
+        print(f"[FFMPEG] Error during conversion:\n{e.stderr.decode()}")
+        raise RuntimeError("Audio conversion failed")
 
 @app.route('/')
 def serve_index():
@@ -18,68 +28,60 @@ def serve_static(path):
 @app.route('/transcribe', methods=['POST'])
 def transcribe_audio():
     if 'file' not in request.files:
-        print("No file part in request.")
+        print("[ERROR] No file uploaded.")
         return jsonify({'text': 'No file uploaded'}), 400
 
     uploaded_file = request.files['file']
     original_filename = uploaded_file.filename
     file_ext = os.path.splitext(original_filename)[1].lower()
 
-    print(f"Uploaded filename: {original_filename}")
-    print(f"File extension: {file_ext}")
-    print(f"MIME type: {uploaded_file.content_type}")
+    print(f"[INFO] Uploaded: {original_filename} (.{file_ext})")
 
     temp_input = 'temp_input' + file_ext
     temp_wav = 'temp_output.wav'
 
     try:
         uploaded_file.save(temp_input)
-        print(f"Saved input file as: {temp_input}")
+        print(f"[INFO] Saved input to: {temp_input}")
     except Exception as e:
-        print(f"Failed to save uploaded file: {e}")
-        return jsonify({'text': f"Error saving file: {str(e)}"}), 500
+        print(f"[ERROR] Saving file failed: {e}")
+        return jsonify({'text': f"File save error: {str(e)}"}), 500
 
-    recognizer = sr.Recognizer()
     try:
-        # # Convert non-wav audio to wav (commented out for debugging)
-        # if file_ext != '.wav':
-        #     print("Converting to WAV format...")
-        #     audio = AudioSegment.from_file(temp_input)
-        #     audio.export(temp_wav, format='wav')
-        #     print(f"Exported WAV as: {temp_wav}")
-        # else:
-        #     os.rename(temp_input, temp_wav)
-        #     print(f"Renamed to: {temp_wav}")
+        # Convert to WAV if needed
+        if file_ext != '.wav':
+            convert_to_wav(temp_input, temp_wav)
+        else:
+            temp_wav = temp_input  # Use as-is if already WAV
 
-        # Debugging: use uploaded .wav file as-is
-        temp_wav = temp_input
-
-        print("Starting transcription...")
+        recognizer = sr.Recognizer()
         with sr.AudioFile(temp_wav) as source:
+            print("[INFO] Recording audio data...")
             audio_data = recognizer.record(source)
-            print("Audio data recorded.")
-            text = recognizer.recognize_google(audio_data)
-            print(f"Transcribed text: {text}")
+            print("[INFO] Audio data recorded. Transcribing...")
 
-        return jsonify({'text': text})
+            text = recognizer.recognize_google(audio_data)
+            print(f"[SUCCESS] Transcribed text: {text}")
+            return jsonify({'text': text})
 
     except sr.UnknownValueError:
-        print("Speech recognition could not understand the audio.")
+        print("[WARN] Speech not understood.")
         return jsonify({'text': "Could not understand audio"}), 400
 
     except sr.RequestError as e:
-        print(f"Speech recognition API request failed: {e}")
-        return jsonify({'text': "Speech API error occurred"}), 503
+        print(f"[ERROR] Google API error: {e}")
+        return jsonify({'text': "Speech recognition service error"}), 503
 
     except Exception as e:
-        print(f"Transcription error: {e}")
-        return jsonify({'text': f"Unexpected error: {str(e)}"}), 500
+        print(f"[ERROR] Unexpected transcription error: {e}")
+        return jsonify({'text': f"Error: {str(e)}"}), 500
 
     finally:
-        if os.path.exists(temp_wav):
-            os.remove(temp_wav)
-        if os.path.exists(temp_input) and temp_input != temp_wav:
-            os.remove(temp_input)
+        for f in [temp_input, temp_wav]:
+            if os.path.exists(f):
+                os.remove(f)
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    import os
+    port = int(os.environ.get("PORT", 10000))  # Default to 10000
+    app.run(debug=False, host='0.0.0.0', port=port)
